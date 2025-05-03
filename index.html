@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIRecap - Meeting Summarizer</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #000000;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+
+        .wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 40px;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+
+        .container {
+            background-color: rgb(49, 48, 48);
+            padding: 40px;
+            border-left: 5px solid #42025b;
+            border-radius: 16px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            width: 100%;
+        }
+
+        .summary-box {
+            background-color: rgb(49, 48, 48);
+            padding: 20px;
+            border-left: 5px solid #42025b;
+            border-radius: 8px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            margin-top: 0;
+            color: #ffffff;
+            text-align: center;
+            font-size: 2.2em;
+        }
+
+        p {
+            text-align: center;
+            color: #ffffff;
+            font-size: 1.1em;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        input[type="file"] {
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 1em;
+        }
+
+        button {
+            padding: 14px;
+            background-color: #42025b;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 1em;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #ffffff;
+            color: #000;
+        }
+
+        .section {
+            margin-top: 30px;
+        }
+
+        #playback {
+            width: 100%;
+            margin-top: 20px;
+            display: none;
+        }
+
+        #recordingStatus {
+            color: #ffffff;
+            text-align: center;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <div class="container">
+            <h1>AIRecap: Listen, Understand, Summarize</h1>
+            <p>You can upload a file or record audio directly to get a summary.</p>
+
+            <!-- Upload Section -->
+            <form action="/" method="POST" enctype="multipart/form-data">
+                <input type="file" name="audio" accept=".mp3,.wav,.webm" required>
+                <button type="submit">Summarize Uploaded Audio</button>
+            </form>
+
+            <!-- Mic Recorder -->
+            <div class="section">
+                <h3>🎙 Record Your Voice</h3>
+                <button id="startBtn">Start Recording</button>
+                <button id="stopBtn" disabled>Stop</button>
+                <p id="recordingStatus">Click "Start Recording" to begin</p>
+
+                <!-- Audio Playback -->
+                <audio id="playback" controls></audio>
+
+                <!-- Hidden Form for Recorded Audio -->
+                <form id="recordForm" action="/" method="POST" enctype="multipart/form-data" style="display: none;">
+                    <input type="file" name="audio" id="audioBlobInput">
+                    <button type="submit" id="submitRecording" style="margin-top: 15px;">Submit Recording</button>
+                </form>
+            </div>
+        </div>
+
+        {% if summary %}
+        <div class="summary-box">
+            <h2 style="color: white;">📝 Summary:</h2>
+            <p style="color: white;">{{ summary }}</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+
+        const startBtn = document.getElementById("startBtn");
+        const stopBtn = document.getElementById("stopBtn");
+        const playback = document.getElementById("playback");
+        const recordingStatus = document.getElementById("recordingStatus");
+        const recordForm = document.getElementById("recordForm");
+
+        startBtn.onclick = async () => {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+            audioChunks = [];
+
+            mediaRecorder.ondataavailable = event => {
+                if (event.data.size > 0) {
+                    audioChunks.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(audioChunks, { type: 'audio/webm' });
+                playback.src = URL.createObjectURL(blob);
+                playback.style.display = "block";
+                playback.load();
+
+                const file = new File([blob], "recording.webm", { type: "audio/webm" });
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                document.getElementById("audioBlobInput").files = dataTransfer.files;
+
+                recordForm.style.display = "flex";
+                recordingStatus.textContent = "Recording complete. You can listen or submit.";
+            };
+
+            mediaRecorder.start();
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            recordingStatus.textContent = "🎙 Recording...";
+        };
+
+        stopBtn.onclick = () => {
+            mediaRecorder.stop();
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+        };
+    </script>
+</body>
+</html>
